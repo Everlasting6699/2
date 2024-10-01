@@ -62,24 +62,100 @@ function startTimer() {
 }
 
 // 创建彩色单词元素
+// 存储已经使用的水平位置，防止重叠
+let usedPositions = [];
+let wordElements = {};  // 用于存储每句歌词的所有单词元素
+
+// 创建彩色单词元素
 function createWordElement(word, lyricName) {
     const wordElement = document.createElement('div');
     wordElement.className = 'word';
     wordElement.textContent = word;
-    wordElement.style.left = `${Math.random() * 90}%`;  // 随机水平位置
-    wordElement.style.top = '0';
-    wordElement.style.backgroundColor = getRandomColor();  // 随机彩色背景
 
+    // 生成不重叠的随机水平位置
+    let leftPosition;
+    do {
+        leftPosition = Math.random() * 90;  // 随机水平位置（0 到 90%）
+    } while (isPositionOverlap(leftPosition));
+
+    wordElement.style.left = `${leftPosition}%`;  // 确定水平位置
+    wordElement.style.top = '0';  // 初始位置在顶部
+    wordElement.style.backgroundColor = getRandomColor();  // 设置随机颜色
+
+    // 将单词加入游戏区域
     gameArea.appendChild(wordElement);
-    
-    // 单词下落逻辑
+
+    // 记录该位置，防止重叠
+    usedPositions.push(leftPosition);
+
+    // 保存该单词元素到对应的歌词中
+    if (!wordElements[lyricName]) {
+        wordElements[lyricName] = [];
+    }
+    wordElements[lyricName].push(wordElement);
+
+    // 单词下落动画逻辑
     let interval = setInterval(() => {
-        wordElement.style.top = `${parseInt(wordElement.style.top) + 1}px`;
-        if (parseInt(wordElement.style.top) > window.innerHeight - 100) {
-            gameArea.removeChild(wordElement);
-            clearInterval(interval);
+        wordElement.style.top = `${parseInt(wordElement.style.top) + 2}px`;  // 让单词不断下落
+        if (parseInt(wordElement.style.top) > window.innerHeight - 100) {  // 如果单词到达底部
+            gameArea.removeChild(wordElement);  // 移除单词
+            clearInterval(interval);  // 停止动画
         }
-    }, 50);  // 调整下落速度
+    }, 30);  // 控制下落速度
+}
+
+// 检查新的位置是否与已有位置重叠
+function isPositionOverlap(newPosition) {
+    const threshold = 10;  // 设定最小距离为10%，防止过于接近
+    for (let pos of usedPositions) {
+        if (Math.abs(pos - newPosition) < threshold) {
+            return true;  // 重叠
+        }
+    }
+    return false;  // 没有重叠
+}
+
+// 清理已使用的位置（可以在每一关结束后调用）
+function clearUsedPositions() {
+    usedPositions = [];  // 清空已使用的位置
+}
+
+// 当某句歌词完成时，移除屏幕上的所有字
+function removeLyricWords(lyricName) {
+    if (wordElements[lyricName]) {
+        wordElements[lyricName].forEach(element => {
+            gameArea.removeChild(element);  // 从游戏区域移除单词元素
+        });
+        delete wordElements[lyricName];  // 删除对应歌词的元素列表
+    }
+}
+
+// 完成某句歌词后的调用逻辑
+function checkIfLyricCompleted(lyricName) {
+    // 当某句歌词完成时，调用该函数
+    // 例如，当玩家正确完成歌词的拼凑，可以调用此函数
+    removeLyricWords(lyricName);  // 移除该歌词的所有字
+}
+
+// 生成随机颜色
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+
+// 掉落单词的逻辑（你可能已经有这个函数，如果有，可以忽略）
+function startDroppingWords() {
+    const lyricKeys = Object.keys(currentLyricSet);  // 获取当前关卡的所有歌词
+    setInterval(() => {
+        const randomLyric = lyricKeys[Math.floor(Math.random() * lyricKeys.length)];  // 随机选择一行歌词
+        const randomWord = currentLyricSet[randomLyric][Math.floor(Math.random() * currentLyricSet[randomLyric].length)];  // 随机选择一个单词
+        createWordElement(randomWord, randomLyric);  // 创建单词元素并开始掉落
+    }, 1000);  // 每隔1秒生成一个单词
+}
 
     // 单词点击事件，按顺序记录点击
     wordElement.addEventListener('click', () => {
